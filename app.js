@@ -48,10 +48,7 @@ function cacheElements() {
 function loadState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return {
-      checkins: Array.isArray(parsed?.checkins) ? parsed.checkins : [],
-      workouts: Array.isArray(parsed?.workouts) ? parsed.workouts : [],
-    };
+    return normalizeState(parsed);
   } catch {
     return { checkins: [], workouts: [] };
   }
@@ -212,14 +209,23 @@ function bindDataActions() {
   els.importJson.addEventListener("change", async (event) => {
     const [file] = event.target.files;
     if (!file) return;
-    const incoming = JSON.parse(await file.text());
-    if (!Array.isArray(incoming.checkins) || !Array.isArray(incoming.workouts)) {
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Backup troppo grande.");
+      event.target.value = "";
+      return;
+    }
+    let incoming;
+    try {
+      incoming = normalizeState(JSON.parse(await file.text()));
+    } catch {
       alert("File non valido.");
+      event.target.value = "";
       return;
     }
     state.checkins = incoming.checkins;
     state.workouts = incoming.workouts;
     saveState();
+    event.target.value = "";
     renderAll();
   });
 
@@ -242,10 +248,10 @@ function addExerciseRow(value = {}) {
   const row = document.createElement("div");
   row.className = "exercise-row";
   row.innerHTML = `
-    <label>Nome<input name="exerciseName" type="text" value="${escapeAttr(value.name || "")}" placeholder="Panca piana" /></label>
-    <label>Serie<input name="sets" type="text" inputmode="numeric" value="${escapeAttr(value.sets || "")}" placeholder="4" /></label>
-    <label>Rep<input name="reps" type="text" inputmode="numeric" value="${escapeAttr(value.reps || "")}" placeholder="8" /></label>
-    <label>Kg<input name="load" type="text" inputmode="decimal" value="${escapeAttr(value.load || "")}" placeholder="100" /></label>
+    <label>Nome<input name="exerciseName" type="text" maxlength="60" value="${escapeAttr(value.name || "")}" placeholder="Panca piana" /></label>
+    <label>Serie<input name="sets" type="text" inputmode="numeric" maxlength="3" value="${escapeAttr(value.sets || "")}" placeholder="4" /></label>
+    <label>Rep<input name="reps" type="text" inputmode="numeric" maxlength="3" value="${escapeAttr(value.reps || "")}" placeholder="8" /></label>
+    <label>Kg<input name="load" type="text" inputmode="decimal" maxlength="8" value="${escapeAttr(value.load || "")}" placeholder="100" /></label>
     <button type="button" title="Rimuovi riga">x</button>
   `;
   row.querySelector("button").addEventListener("click", () => {
@@ -358,7 +364,7 @@ function renderWorkouts() {
             <div class="timeline-item">
               <div>
                 <strong>${escapeHtml(workout.title)} · ${formatDate(workout.date)}</strong>
-                <small>${summary || "Nessun esercizio"}${workout.duration ? ` · ${workout.duration} min` : ""}</small>
+                <small>${summary || "Nessun esercizio"}${workout.duration ? ` · ${escapeHtml(workout.duration)} min` : ""}</small>
               </div>
               <span class="pill">RPE ${formatValue(workout.rpe)}</span>
             </div>`;
@@ -548,6 +554,74 @@ function numberOrNull(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function normalizeState(value) {
+  if (!value || !Array.isArray(value.checkins) || !Array.isArray(value.workouts)) {
+    return { checkins: [], workouts: [] };
+  }
+  return {
+    checkins: value.checkins.slice(0, 5000).map(normalizeCheckin).filter(Boolean),
+    workouts: value.workouts.slice(0, 2000).map(normalizeWorkout).filter(Boolean),
+  };
+}
+
+function normalizeCheckin(item) {
+  if (!item || !isValidDate(item.date)) return null;
+  return {
+    id: safeId(item.id),
+    date: item.date,
+    weight: reasonableNumber(item.weight, 0, 500),
+    waist: reasonableNumber(item.waist, 0, 300),
+    hunger: reasonableNumber(item.hunger, 1, 10),
+    energy: reasonableNumber(item.energy, 1, 10),
+    sleep: reasonableNumber(item.sleep, 0, 24),
+    adherence: reasonableNumber(item.adherence, 0, 100),
+    notes: limitText(item.notes, 500),
+  };
+}
+
+function normalizeWorkout(item) {
+  if (!item || !isValidDate(item.date)) return null;
+  const exercises = Array.isArray(item.exercises) ? item.exercises.slice(0, 40).map(normalizeExercise).filter(Boolean) : [];
+  return {
+    id: safeId(item.id),
+    date: item.date,
+    title: limitText(item.title, 60) || "Allenamento",
+    duration: reasonableNumber(item.duration, 0, 600),
+    rpe: reasonableNumber(item.rpe, 1, 10),
+    notes: limitText(item.notes, 500),
+    exercises,
+  };
+}
+
+function normalizeExercise(item) {
+  if (!item) return null;
+  const exercise = {
+    name: limitText(item.name, 60),
+    sets: reasonableNumber(item.sets, 0, 100),
+    reps: reasonableNumber(item.reps, 0, 1000),
+    load: reasonableNumber(item.load, 0, 1000),
+  };
+  return exercise.name || exercise.sets != null || exercise.reps != null || exercise.load != null ? exercise : null;
+}
+
+function safeId(value) {
+  return typeof value === "string" && /^[a-zA-Z0-9-]{8,80}$/.test(value) ? value : crypto.randomUUID();
+}
+
+function isValidDate(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T12:00:00`).getTime());
+}
+
+function reasonableNumber(value, min, max) {
+  const number = typeof value === "number" ? value : numberOrNull(value);
+  if (number == null || !Number.isFinite(number)) return null;
+  return Math.min(max, Math.max(min, number));
+}
+
+function limitText(value, maxLength) {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
 function clamp(value, min, max) {
   if (value == null) return null;
   return Math.min(max, Math.max(min, value));
@@ -583,7 +657,8 @@ function daysBetween(from, to) {
 }
 
 function csvCell(value) {
-  const text = value == null ? "" : String(value);
+  let text = value == null ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
   return `"${text.replaceAll('"', '""')}"`;
 }
 
