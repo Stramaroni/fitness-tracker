@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101820" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Training Log" />
+    <title>Training Log</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./assets/icon.svg" />
+    <link rel="stylesheet" href="./styles.css?v=3" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Diario personale</p>
+          <h1>Training Log</h1>
+        </div>
+        <button class="icon-button" id="installButton" type="button" title="Installa app" hidden>
+          <span aria-hidden="true">+</span>
+        </button>
+      </header>
+
+      <main>
+        <section class="screen is-active" data-screen="dashboard" aria-labelledby="dashboardTitle">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Settimana corrente</p>
+              <h2 id="dashboardTitle">Panoramica</h2>
+            </div>
+            <input class="date-chip" id="todayPicker" type="date" />
+          </div>
+
+          <div class="metric-grid" id="weeklyCards"></div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Trend ultimi 30 giorni</h3>
+              <select id="trendMetric" aria-label="Metrica trend">
+                <option value="weight">Peso</option>
+                <option value="waist">Vita</option>
+                <option value="hunger">Fame</option>
+                <option value="energy">Energia</option>
+                <option value="sleep">Sonno</option>
+                <option value="adherence">Aderenza</option>
+              </select>
+            </div>
+            <canvas id="trendChart" height="180" aria-label="Grafico andamento"></canvas>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Carichi principali</h3>
+              <button class="text-button" type="button" data-open-screen="workouts">Aggiungi</button>
+            </div>
+            <div class="load-list" id="loadHighlights"></div>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="checkin" aria-labelledby="checkinTitle">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Misure e recupero</p>
+              <h2 id="checkinTitle">Check-in giornaliero</h2>
+            </div>
+          </div>
+
+          <form class="form-stack" id="checkinForm">
+            <label>
+              Data
+              <input name="date" type="date" required />
+            </label>
+            <div class="two-col">
+              <label>
+                Peso kg
+                <input name="weight" type="text" inputmode="decimal" placeholder="82.4" />
+              </label>
+              <label>
+                Vita cm
+                <input name="waist" type="text" inputmode="decimal" placeholder="86.0" />
+              </label>
+            </div>
+            <div class="range-row">
+              <label for="hunger">Fame <strong id="hungerValue">5</strong></label>
+              <input id="hunger" name="hunger" type="range" min="1" max="10" value="5" />
+            </div>
+            <div class="range-row">
+              <label for="energy">Energia <strong id="energyValue">5</strong></label>
+              <input id="energy" name="energy" type="range" min="1" max="10" value="5" />
+            </div>
+            <div class="two-col">
+              <label>
+                Sonno ore
+                <input name="sleep" type="text" inputmode="decimal" placeholder="7.5" />
+              </label>
+              <label>
+                Dieta %
+                <input name="adherence" type="text" inputmode="numeric" placeholder="90" />
+              </label>
+            </div>
+            <label>
+              Note
+              <textarea name="notes" rows="3" placeholder="Digestione, stress, passi, cardio..."></textarea>
+            </label>
+            <button class="primary-button" type="submit">Salva check-in</button>
+          </form>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Ultimi check-in</h3>
+              <button class="text-button danger" id="clearCheckins" type="button">Svuota</button>
+            </div>
+            <div class="timeline" id="checkinList"></div>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="workouts" aria-labelledby="workoutsTitle">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Allenamenti</p>
+              <h2 id="workoutsTitle">Sessione</h2>
+            </div>
+          </div>
+
+          <form class="form-stack" id="workoutForm">
+            <div class="two-col">
+              <label>
+                Data
+                <input name="date" type="date" required />
+              </label>
+              <label>
+                Durata min
+                <input name="duration" type="text" inputmode="numeric" placeholder="75" />
+              </label>
+            </div>
+            <div class="two-col">
+              <label>
+                Nome sessione
+                <input name="title" type="text" placeholder="Upper, Lower, Full body" />
+              </label>
+              <label>
+                RPE
+                <input name="rpe" type="text" inputmode="decimal" placeholder="8" />
+              </label>
+            </div>
+            <div class="exercise-editor">
+              <div class="panel-head compact">
+                <h3>Esercizi</h3>
+                <button class="text-button" id="addExercise" type="button">Aggiungi riga</button>
+              </div>
+              <div id="exerciseRows"></div>
+            </div>
+            <label>
+              Note allenamento
+              <textarea name="notes" rows="3" placeholder="Top set, back-off, tecnica, dolori..."></textarea>
+            </label>
+            <button class="primary-button" type="submit">Salva allenamento</button>
+          </form>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Storico allenamenti</h3>
+              <button class="text-button danger" id="clearWorkouts" type="button">Svuota</button>
+            </div>
+            <div class="timeline" id="workoutList"></div>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="stats" aria-labelledby="statsTitle">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Medie e confronti</p>
+              <h2 id="statsTitle">Report</h2>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Medie settimanali</h3>
+              <select id="weekCount" aria-label="Settimane da mostrare">
+                <option value="4">4 settimane</option>
+                <option value="8">8 settimane</option>
+                <option value="12">12 settimane</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Settimana</th>
+                    <th>Peso</th>
+                    <th>Vita</th>
+                    <th>Fame</th>
+                    <th>Energia</th>
+                    <th>Sonno</th>
+                    <th>Dieta</th>
+                  </tr>
+                </thead>
+                <tbody id="weeklyTable"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Volume per esercizio</h3>
+              <select id="exerciseFilter" aria-label="Filtro esercizio"></select>
+            </div>
+            <canvas id="loadChart" height="180" aria-label="Grafico carichi"></canvas>
+          </div>
+        </section>
+
+        <section class="screen" data-screen="settings" aria-labelledby="settingsTitle">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Backup</p>
+              <h2 id="settingsTitle">Dati</h2>
+            </div>
+          </div>
+          <div class="panel actions-panel">
+            <button class="primary-button" id="exportJson" type="button">Esporta JSON</button>
+            <button class="secondary-button" id="exportCsv" type="button">Esporta CSV</button>
+            <label class="file-button">
+              Importa JSON
+              <input id="importJson" type="file" accept="application/json" />
+            </label>
+          </div>
+          <div class="panel">
+            <h3>Uso su iPhone</h3>
+            <p class="muted">
+              Apri questa pagina da Safari e usa Condividi, poi Aggiungi a schermata Home. I dati restano nel browser del telefono finche non li esporti o cancelli.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar" aria-label="Navigazione principale">
+        <button class="tab is-active" type="button" data-tab="dashboard">Home</button>
+        <button class="tab" type="button" data-tab="checkin">Check-in</button>
+        <button class="tab" type="button" data-tab="workouts">Workout</button>
+        <button class="tab" type="button" data-tab="stats">Report</button>
+        <button class="tab" type="button" data-tab="settings">Dati</button>
+      </nav>
+    </div>
+    <script src="./app.js?v=3" defer></script>
+  </body>
+</html>
